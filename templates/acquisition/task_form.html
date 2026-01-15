@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}New Acquisition - ForensixOne{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 0 auto;">
+    <h1 style="margin-bottom: 8px;">New Acquisition Task</h1>
+    <p style="color: var(--text-muted); margin-bottom: 24px;">Configure a new forensic collection job. This will automatically create an Evidence listing.</p>
+    
+    <div class="card">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+                <div style="padding: 12px; background: rgba(239, 68, 68, 0.1); color: #F87171; border-radius: 8px; margin-bottom: 20px;">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                <!-- Left Column -->
+                <div>
+                     <h3 style="font-size: 1rem; color: var(--primary-color); margin-bottom: 16px;">Evidence Details</h3>
+                     
+                     <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Assign to Case</label>
+                        <select name="case" class="form-control">
+                            {% for choice in form.case.field.queryset %}
+                                <option value="{{ choice.pk }}">{{ choice.name }} ({{ choice.case_number }})</option>
+                            {% endfor %}
+                        </select>
+                         {% if form.case.errors %}<div style="color: #F87171; font-size: 0.8rem;">{{ form.case.errors }}</div>{% endif %}
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Evidence Label</label>
+                        <input type="text" name="evidence_name" required class="form-control" placeholder="e.g. Suspect Laptop HDD">
+                    </div>
+                    
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Type</label>
+                        <select name="source_type" class="form-control">
+                            <option value="disk">Physical Disk</option>
+                            <option value="memory">Memory Dump</option>
+                            <option value="mobile">Mobile Device</option>
+                            <option value="cloud">Cloud Account</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Right Column -->
+                <div>
+                    <h3 style="font-size: 1rem; color: var(--primary-color); margin-bottom: 16px;">Acquisition Parameters</h3>
+
+                     <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Method</label>
+                        <select name="type" class="form-control">
+                            <option value="disk_physical">Physical (DD Raw)</option>
+                            <option value="disk_expert">Expert Witness (E01)</option>
+                            <option value="memory_dump">Volatile Memory</option>
+                            <option value="remote_agent">Remote Agent Stream</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Source Path (Device)</label>
+                        <input type="text" name="source_path" required class="form-control" placeholder="/dev/sdb or \\.\PhysicalDrive1">
+                        <small style="color: var(--text-muted);">Use /tmp/dummy_disk.raw for testing.</small>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Destination Path (Image)</label>
+                        <input type="text" name="destination_path" required class="form-control" placeholder="/mnt/evidence/image.dd">
+                    </div>
+                </div>
+            </div>
+
+            <div style="padding: 16px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; margin-bottom: 24px; font-size: 0.9rem;">
+                <span style="font-weight: 600; color: var(--primary-color);">Info:</span> 
+                Task will be created in PENDING state. You must manually start it from the dashboard.
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <a href="{% url 'acquisition-list' %}" class="btn btn-outline" style="text-align: center;">Cancel</a>
+                <button type="submit" class="btn">Create Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .form-control {
+        width: 100%;
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px;
+        color: var(--text-main);
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+</style>
+{% endblock %}

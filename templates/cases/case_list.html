@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Cases - ForensixOne{% endblock %}
+
+{% block content %}
+<header>
+    <div>
+        <h2>All Cases</h2>
+        <p style="color: var(--text-muted);">Manage your active investigations.</p>
+    </div>
+    <a href="{% url 'case-create' %}" class="btn">+ New Case</a>
+</header>
+
+<div class="card" style="padding: 0;">
+    <table>
+        <thead>
+            <tr>
+                <th>Case Number</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for case in cases %}
+            <tr onclick="window.location='{% url 'case-detail' case.pk %}';" style="cursor: pointer; transition: background 0.1s;">
+                <td style="font-family: monospace; color: var(--primary-color);">{{ case.case_number }}</td>
+                <td>{{ case.name }}</td>
+                <td>{{ case.get_case_type_display }}</td>
+                <td>
+                    <span class="status-badge 
+                        {% if case.status == 'open' %}status-running{% endif %}
+                        {% if case.status == 'closed' %}status-completed{% endif %}">
+                        {{ case.get_status_display }}
+                    </span>
+                </td>
+                <td>
+                    <span style="
+                        {% if case.priority == 'high' %}color: #F87171;{% endif %}
+                        {% if case.priority == 'medium' %}color: #FBBF24;{% endif %}
+                        {% if case.priority == 'low' %}color: #34D399;{% endif %}
+                    ">● {{ case.get_priority_display }}</span>
+                </td>
+                <td>{{ case.created_at|date:"M d, Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    No cases found. Create one to get started.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+</style>
+{% endblock %}
