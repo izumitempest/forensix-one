@@ -158,7 +158,25 @@ class AuditLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     
     # Chain of custody
+    prev_hash = models.CharField(max_length=64, blank=True)
+    hash = models.CharField(max_length=64, blank=True)
     blockchain_tx_id = models.CharField(max_length=255, blank=True, null=True)
     
     class Meta:
         ordering = ['-timestamp']
+
+    def save(self, *args, **kwargs):
+        if not self.hash:
+            # Simple cryptographic chaining
+            last_log = AuditLog.objects.filter(case=self.case).order_by('-timestamp').first()
+            self.prev_hash = last_log.hash if last_log else "0" * 64
+            
+            # Compute current hash
+            import hashlib
+            payload = f"{self.prev_hash}{self.user_id}{self.action}{self.timestamp}{self.details}"
+            self.hash = hashlib.sha256(payload.encode()).hexdigest()
+            
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"[{self.timestamp}] {self.user} - {self.action}"
