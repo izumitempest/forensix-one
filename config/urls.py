@@ -8,6 +8,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from core.views import IndexView
+from apps.acquisition.views import AgentDeployView, AgentStreamView
 
 urlpatterns = [
     path("", IndexView.as_view(), name="index"),
@@ -33,8 +34,9 @@ urlpatterns = [
     path("api/analysis/", include("apps.analysis.urls")),
     path("api/reporting/", include("apps.reporting.urls")),
     path("api/timeline/", include("apps.timeline.urls")),
-    # Agent Deployment
-    path("agent/", include("apps.acquisition.urls_agent")),
+    # Agent Deployment Pillar
+    path("agent/", AgentDeployView.as_view(), name="agent-deploy"),
+    path("agent/stream/<uuid:task_id>", AgentStreamView.as_view(), name="agent-stream"),
 ]
 
 if settings.DEBUG:

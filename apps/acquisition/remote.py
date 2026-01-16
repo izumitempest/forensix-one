@@ -2,6 +2,7 @@ import os
 import logging
 import uuid
 import time
+import hashlib
 from django.utils import timezone
 from .physical import PhysicalImager
 
@@ -82,6 +83,49 @@ class RemoteStreamImager(PhysicalImager):
             self.task.error_message = str(e)
             self.task.save()
             return False
+
+    def _finalize_task(self):
+        """
+        Special finalization for Remote Streams.
+        Recalculates hashes from the finished file on disk since data arrived out-of-band.
+        """
+        if not os.path.exists(self.destination_path):
+            logger.error(f"Remote stream file missing at {self.destination_path}")
+            return
+
+        logger.info(
+            f"Performing post-acquisition verification for {self.destination_path}"
+        )
+
+        # Calculate hashes from disk
+        md5 = hashlib.md5()
+        sha256 = hashlib.sha256()
+        size = 0
+
+        with open(self.destination_path, "rb") as f:
+            while True:
+                chunk = f.read(1024 * 1024)
+                if not chunk:
+                    break
+                md5.update(chunk)
+                sha256.update(chunk)
+                size += len(chunk)
+
+        self.task.calculated_md5 = md5.hexdigest()
+        self.task.calculated_sha256 = sha256.hexdigest()
+        self.task.save()
+
+        # Update Evidence object (Sync with Pillar 2: Preservation)
+        if self.task.evidence:
+            self.task.evidence.md5_hash = self.task.calculated_md5
+            self.task.evidence.sha256_hash = self.task.calculated_sha256
+            self.task.evidence.size_bytes = size
+            self.task.evidence.file_path = self.destination_path
+            self.task.evidence.acquisition_method = "Remote Agent Stream"
+            self.task.evidence.save()
+
+        # Finish up with standard logic (Analysis trigger etc)
+        super()._finalize_task()
 
     def generate_agent_command(self, server_url):
         """Returns the curl/one-liner to deploy the agent"""

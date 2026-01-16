@@ -98,7 +98,7 @@
                 </div>
                 <div style="grid-column: span 2;">
                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Forensic Image Path (Server Local Storage)</label>
-                    <div style="font-family: monospace; font-size: 0.9rem; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">{{ evidence.file_path }}</div>
+                    <div style="font-family: monospace; font-size: 0.9rem; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">{{ evidence.file_path|default:"Not available" }}</div>
                 </div>
             </div>
             <div class="card">

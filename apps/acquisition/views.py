@@ -30,12 +30,18 @@ class AcquisitionTaskViewSet(viewsets.ModelViewSet):
 
 
 # --- UI Views ---
+import os
+import logging
 from django.views.generic import ListView, CreateView, View
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse_lazy
+from django.utils import timezone
+from django.http import HttpResponse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
 from .forms import AcquisitionForm
+
+logger = logging.getLogger(__name__)
 
 
 class AcquisitionListView(LoginRequiredMixin, ListView):
@@ -131,7 +137,11 @@ echo "[AGENT] Collecting system telemetry..."
   echo "--- USER SESSIONS ---"
   who
   echo "=== END OF REPORT ==="
-) | curl -i -sS -H "Content-Type: application/octet-stream" -T - "http://{{ host }}/agent/stream/$KEY/"
+) > /tmp/report.txt
+
+# Upload with Content-Length to avoid chunked encoding issues with dev server
+curl -i -sS -H "Content-Type: application/octet-stream" -T /tmp/report.txt "http://{{ host }}/agent/stream/$KEY"
+rm /tmp/report.txt
 
 echo "[AGENT] Transmission complete. Agent self-destructing..."
 """

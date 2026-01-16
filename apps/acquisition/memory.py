@@ -42,7 +42,7 @@ class MemoryImager(PhysicalImager):
             # 2. Fallback to /proc/kcore bit-stream
             if self.internal_source:
                 logger.info(f"AVML not found, falling back to /proc/kcore capture")
-                self._acquire_raw()
+                self._acquire_kcore()
                 self._finalize_task()
                 return True
 
@@ -67,6 +67,62 @@ class MemoryImager(PhysicalImager):
             self.task.error_message = str(e)
             self.task.save()
             return False
+
+    def _get_ram_size(self):
+        """Detects physical RAM size from /proc/meminfo"""
+        try:
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    if line.startswith("MemTotal:"):
+                        # MemTotal:       7966440 kB
+                        parts = line.split()
+                        kb = int(parts[1])
+                        return kb * 1024
+        except Exception as e:
+            logger.warning(f"Failed to parse meminfo: {e}")
+        return 0
+
+    def _acquire_kcore(self):
+        """
+        Specialized capture for /proc/kcore.
+        Capping the read to actual MemTotal to avoid 128TB virtual size.
+        """
+        total_ram = self._get_ram_size()
+        if total_ram == 0:
+            logger.warning(
+                "Could not determine RAM size, falling back to default capture (RISKY)"
+            )
+            return self._acquire_raw()
+
+        logger.info(
+            f"Smart Capture: Capping kcore read to {total_ram} bytes (Detected RAM)"
+        )
+
+        bytes_copied = 0
+        start_time = time.time()
+        last_update = time.time()
+
+        with open(self.internal_source, "rb") as src, open(
+            self.destination_path, "wb"
+        ) as dst:
+            while bytes_copied < total_ram:
+                # Read either CHUNK_SIZE or remaining RAM
+                to_read = min(self.CHUNK_SIZE, total_ram - bytes_copied)
+                chunk = src.read(to_read)
+                if not chunk:
+                    break
+
+                dst.write(chunk)
+                self.hashes["md5"].update(chunk)
+                self.hashes["sha256"].update(chunk)
+                bytes_copied += len(chunk)
+
+                now = time.time()
+                if now - last_update > 0.5:
+                    msg = self._update_progress(bytes_copied, total_ram, start_time)
+                    self.task.current_speed = msg
+                    self.task.save()
+                    last_update = now
 
     def _try_avml(self):
         """Attempts to use AVML if present in path"""
