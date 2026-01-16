@@ -21,61 +21,60 @@ class PhysicalImager:
 
     def __init__(self, task):
         self.task = task
-        # logical_source is what we show the user/forensic logs
-        # internal_source is what we actually read from
+        # 0. Set Initial Paths
         self.logical_source = task.source_path or ""
+        self.internal_source = task.source_path or ""
+        self.destination_path = task.destination_path or ""
 
+        # 1. Handle File Uploads (Special Logic)
         if task.type == "file_upload" and task.source_upload:
             self.internal_source = task.source_upload.path
-            # If DB source_path is empty, use the original uploaded filename
             if not self.logical_source:
                 self.logical_source = os.path.basename(task.source_upload.name)
                 task.source_path = self.logical_source
                 task.save()
 
-            # If no destination provided, auto-generate one in evidence folder
-            if not task.destination_path:
-                filename = os.path.basename(task.source_upload.name)
-                self.destination_path = os.path.join(
-                    settings.MEDIA_ROOT, "evidence", f"{task.id}_{filename}"
-                )
-                task.destination_path = self.destination_path
-                task.save()
-            else:
-                self.destination_path = task.destination_path
-        else:
-            self.internal_source = task.source_path or ""
-            self.destination_path = task.destination_path or ""
+        # 2. Auto-generate Destination if missing
+        if not self.destination_path:
+            ext = ".dd"  # Default
+            if task.type == "disk_expert":
+                ext = ".E01"
+            elif task.type == "memory_dump":
+                ext = ".mem"
+            elif task.type == "remote_agent":
+                ext = ".remote"
 
-        # Robustness for UI placeholders
-        if "Auto-managed" in self.destination_path:
-            self.destination_path = ""
-
-        if task.type == "file_upload" and not self.destination_path:
-            filename = (
-                os.path.basename(task.source_upload.name)
-                if task.source_upload
-                else "uploaded_file"
+            clean_name = (
+                task.evidence.name.replace(" ", "_") if task.evidence else "acquisition"
             )
             self.destination_path = os.path.join(
-                settings.MEDIA_ROOT, "evidence", f"{task.id}_{filename}"
+                settings.MEDIA_ROOT, "evidence", f"{task.id}_{clean_name}{ext}"
             )
             task.destination_path = self.destination_path
             task.save()
 
+        # 3. Robustness for UI placeholders
+        if "Auto-managed" in self.destination_path:
+            self.destination_path = ""  # Force re-validation or generation if needed
+
         logger.info(
-            f"Initialized PhysicalImager: forensic_source='{self.logical_source}', processing_path='{self.internal_source}', dest='{self.destination_path}'"
+            f"Initialized Imager: forensic_source='{self.logical_source}', internal='{self.internal_source}', dest='{self.destination_path}'"
         )
 
-        # Validation
-        if not self.internal_source:
+        self.hashes = {"md5": hashlib.md5(), "sha256": hashlib.sha256()}
+
+    def _validate_paths(self):
+        """Final validation before acquisition starts"""
+        # Memory and Remote do not necessarily have a local source path at init
+        if not self.internal_source and self.task.type not in [
+            "memory_dump",
+            "remote_agent",
+        ]:
             raise ValueError(
                 "Internal source path is empty. Acquisition cannot proceed."
             )
         if not self.destination_path:
             raise ValueError("Destination path is empty. Acquisition cannot proceed.")
-
-        self.hashes = {"md5": hashlib.md5(), "sha256": hashlib.sha256()}
 
     def acquire(self):
         """Main entry point for acquisition"""
@@ -84,7 +83,12 @@ class PhysicalImager:
             self.task.started_at = timezone.now()
             self.task.save()
 
-            if not os.path.exists(self.internal_source):
+            self._validate_paths()
+
+            if (
+                not os.path.exists(self.internal_source)
+                and self.task.type != "memory_dump"
+            ):
                 raise FileNotFoundError(
                     f"Source device not found: {self.internal_source}"
                 )

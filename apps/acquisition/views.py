@@ -79,3 +79,119 @@ class StartAcquisitionView(LoginRequiredMixin, View):
         messages.success(request, f"Acquisition started for {task.evidence.name}")
         return redirect("ui-acquisition-list")
 
+
+class AgentDeployView(View):
+    """
+    Serves the bootstrap shell script for the Remote Forensic Agent.
+    Usage: curl -sSL http://<host>/agent | bash -s -- --key <connection_key>
+    """
+
+    def get(self, request):
+        from django.http import HttpResponse
+
+        # This is a mock/minimal agent for the pillar implementation.
+        # In production, this would be a compiled binary or a more robust Python script.
+        script = """#!/bin/bash
+echo "--- ForensixOne Remote Agent Deployment ---"
+KEY=""
+
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --key) KEY="$2"; shift ;;
+        *) echo "Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+if [ -z "$KEY" ]; then
+    echo "ERROR: Connection key is required."
+    exit 1
+fi
+
+echo "[AGENT] Connection established using key: $KEY"
+echo "[AGENT] Collecting system telemetry..."
+
+(
+  echo "=== FORENSIX ONE REMOTE TELEMETRY REPORT ==="
+  echo "Timestamp: $(date -u)"
+  echo ""
+  echo "--- SYSTEM IDENTIFICATION ---"
+  uname -a
+  echo ""
+  echo "--- NETWORK STATE (ACTIVE CONNECTIONS) ---"
+  netstat -ant 2>/dev/null || ss -ant
+  echo ""
+  echo "--- RUNNING PROCESSES ---"
+  ps auxww
+  echo ""
+  echo "--- MOUNTED DISKS & BLK DEVICES ---"
+  lsblk
+  echo ""
+  echo "--- USER SESSIONS ---"
+  who
+  echo "=== END OF REPORT ==="
+) | curl -i -sS -H "Content-Type: application/octet-stream" -T - "http://{{ host }}/agent/stream/$KEY/"
+
+echo "[AGENT] Transmission complete. Agent self-destructing..."
+"""
+        # Inject host for feedback
+        script = script.replace("{{ host }}", request.get_host())
+
+        return HttpResponse(script, content_type="text/x-shellscript")
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class AgentStreamView(View):
+    """
+    Receives real-time forensic data from the deployed agent.
+    Endpoint: /agent/stream/<uuid:task_id>/
+    """
+
+    def put(self, request, task_id):
+        """Map PUT to POST logic for curl -T compatibility"""
+        return self.post(request, task_id)
+
+    def post(self, request, task_id):
+        task = get_object_or_404(AcquisitionTask, pk=task_id)
+
+        # Ensure the destination path exists
+        dest_dir = os.path.dirname(task.destination_path)
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir, exist_ok=True)
+
+        logger.info(f"Receiving forensic stream for Task {task_id}")
+
+        try:
+            with open(task.destination_path, "wb") as f:
+                # Read chunks directly from the request stream
+                while True:
+                    chunk = request.read(1024 * 1024)  # 1MB chunks
+                    if not chunk:
+                        break
+                    f.write(chunk)
+
+                    # Optional: Update progress based on bytes received
+                    # Since we don't know total size, we just show 'Receiving...' in speed
+                    task.current_speed = "Receiving Data..."
+                    task.save()
+
+            # Finalize task status for the orchestrator to see
+            task.progress_percent = 100
+            task.status = "completed"
+            task.completed_at = timezone.now()
+            task.current_speed = "Stream Complete"
+            task.save()
+
+            return HttpResponse("Stream received successfully", status=200)
+
+        except Exception as e:
+            logger.error(f"Stream ingestion failed for {task_id}: {e}")
+            task.status = "failed"
+            task.error_message = f"Stream Error: {str(e)}"
+            task.save()
+            return HttpResponse(f"Error: {str(e)}", status=500)

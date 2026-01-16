@@ -32,6 +32,8 @@ class MemoryImager(PhysicalImager):
             self.task.started_at = timezone.now()
             self.task.save()
 
+            self._validate_paths()
+
             # 1. Attempt AVML (Preferred for Linux)
             if self._try_avml():
                 self._finalize_task()
@@ -48,6 +50,17 @@ class MemoryImager(PhysicalImager):
                 "No suitable memory acquisition source found or permissions denied."
             )
 
+        except PermissionError as e:
+            error_msg = (
+                f"Permission Denied: '{self.internal_source}'. "
+                "Forensic Tip: RAM access requires root or CAP_SYS_RAWIO. "
+                "Ensure local worker is run with sudo or has raw-io capabilities."
+            )
+            logger.error(error_msg)
+            self.task.status = "failed"
+            self.task.error_message = error_msg
+            self.task.save()
+            return False
         except Exception as e:
             logger.error(f"Memory acquisition failed: {e}")
             self.task.status = "failed"

@@ -33,6 +33,8 @@ urlpatterns = [
     path("api/analysis/", include("apps.analysis.urls")),
     path("api/reporting/", include("apps.reporting.urls")),
     path("api/timeline/", include("apps.timeline.urls")),
+    # Agent Deployment
+    path("agent/", include("apps.acquisition.urls_agent")),
 ]
 
 if settings.DEBUG:
