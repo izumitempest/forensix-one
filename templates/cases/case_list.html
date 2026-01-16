@@ -8,7 +8,7 @@
         <h2>All Cases</h2>
         <p style="color: var(--text-muted);">Manage your active investigations.</p>
     </div>
-    <a href="{% url 'case-create' %}" class="btn">+ New Case</a>
+    <a href="{% url 'ui-case-create' %}" class="btn">+ New Case</a>
 </header>
 
 <div class="card" style="padding: 0;">
@@ -25,7 +25,7 @@
         </thead>
         <tbody>
             {% for case in cases %}
-            <tr onclick="window.location='{% url 'case-detail' case.pk %}';" style="cursor: pointer; transition: background 0.1s;">
+            <tr onclick="window.location='{% url 'ui-case-detail' case.pk %}';" style="cursor: pointer; transition: background 0.1s;">
                 <td style="font-family: monospace; color: var(--primary-color);">{{ case.case_number }}</td>
                 <td>{{ case.name }}</td>
                 <td>{{ case.get_case_type_display }}</td>

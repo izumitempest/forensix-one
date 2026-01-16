@@ -1,0 +1,5 @@
+# /etc/udev/rules.d/99-forensics-disks.rules
+# Grant members of the 'disk' group read access to all block devices for forensic imaging.
+# This allows the ForensixOne worker to image disks while running as a standard user in the disk group.
+
+SUBSYSTEM=="block", GROUP="disk", MODE="0640"

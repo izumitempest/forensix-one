@@ -8,7 +8,7 @@
         <h2>Acquisition Tasks</h2>
         <p style="color: var(--text-muted);">Monitor ongoing forensic collections.</p>
     </div>
-    <a href="{% url 'acquisition-create' %}" class="btn">+ New Acquisition</a>
+    <a href="{% url 'ui-acquisition-create' %}" class="btn">+ New Acquisition</a>
 </header>
 
 {% if messages %}
@@ -19,75 +19,90 @@
     {% endfor %}
 {% endif %}
 
-<div class="card" style="padding: 0;">
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Evidence</th>
-                <th>Status</th>
-                <th>Progress</th>
-                <th>Speed</th>
-                <th>Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for task in tasks %}
-            <tr>
-                <td style="font-family: monospace; color: var(--text-muted);">{{ task.id|truncatechars:8 }}</td>
-                <td>{{ task.get_type_display }}</td>
-                <td>
-                    {% if task.evidence %}
-                        {{ task.evidence.name }}
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">{{ task.evidence.case.case_number }}</div>
-                    {% else %}
-                        <span style="color: var(--text-muted);">-</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <span class="status-badge 
-                        {% if task.status == 'running' %}status-running{% endif %}
-                        {% if task.status == 'completed' %}status-completed{% endif %}
-                        {% if task.status == 'failed' %}status-failed{% endif %}
-                        {% if task.status == 'queued' %}status-running{% endif %}">
-                        {{ task.get_status_display }}
-                    </span>
-                    {% if task.error_message %}
-                        <div style="font-size: 0.7rem; color: #F87171; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ task.error_message }}">{{ task.error_message }}</div>
-                    {% endif %}
-                </td>
-                <td>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <div style="flex: 1; height: 6px; background: #334155; border-radius: 3px; min-width: 80px;">
-                            <div style="width: {{ task.progress_percent }}%; background: var(--primary-color); height: 100%; border-radius: 3px;"></div>
+<div id="acquisition-tasks-container" 
+     hx-get="{% url 'ui-acquisition-list' %}" 
+     hx-trigger="every 3s" 
+     hx-select="#acquisition-tasks-container" 
+     hx-swap="outerHTML">
+    <div class="card" style="padding: 0;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Evidence</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Speed</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td style="font-family: monospace; color: var(--text-muted);">{{ task.id|truncatechars:8 }}</td>
+                    <td>{{ task.get_type_display }}</td>
+                    <td>
+                        {% if task.evidence %}
+                            <a href="{% url 'ui-evidence-detail' task.evidence.pk %}" style="color: var(--text-main); font-weight: 600; text-decoration: none;">{{ task.evidence.name }}</a>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">{{ task.evidence.case.case_number }}</div>
+                        {% else %}
+                            <span style="color: var(--text-muted);">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge 
+                            {% if task.status == 'running' %}status-running{% endif %}
+                            {% if task.status == 'completed' %}status-completed{% endif %}
+                            {% if task.status == 'failed' %}status-failed{% endif %}
+                            {% if task.status == 'queued' %}status-running{% endif %}">
+                            {{ task.get_status_display }}
+                        </span>
+                        {% if task.error_message %}
+                            <div style="font-size: 0.7rem; color: #F87171; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ task.error_message }}">{{ task.error_message }}</div>
+                        {% endif %}
+                        {% if task.type == 'remote_agent' and task.status != 'completed' %}
+                            <div style="margin-top: 8px; padding: 6px; background: rgba(139, 92, 246, 0.2); border-radius: 4px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                                <div style="font-size: 0.6rem; color: #A78BFA; font-weight: bold; margin-bottom: 2px;">AGENT DEPLOY:</div>
+                                <code style="font-size: 0.65rem; color: #DDD; word-break: break-all;">curl -sSL http://forensiq.local/agent | bash -s -- --key {{ task.id|truncatechars:12 }}</code>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="flex: 1; height: 6px; background: #334155; border-radius: 3px; min-width: 80px;">
+                                <div style="width: {{ task.progress_percent }}%; background: var(--primary-color); height: 100%; border-radius: 3px; transition: width 0.3s ease;"></div>
+                            </div>
+                            <span style="font-size: 0.8rem;">{{ task.progress_percent }}%</span>
                         </div>
-                        <span style="font-size: 0.8rem;">{{ task.progress_percent }}%</span>
-                    </div>
-                </td>
-                <td style="font-family: monospace; font-size: 0.9rem;">{{ task.current_speed|default:"-" }}</td>
-                <td>{{ task.created_at|date:"M d H:i" }}</td>
-                <td>
-                    {% if task.status == 'pending' %}
-                    <form method="post" action="{% url 'acquisition-start' task.pk %}">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;">Start</button>
-                    </form>
-                    {% elif task.status == 'completed' %}
-                    <span style="color: #34D399; font-size: 1.2rem;">&#10003;</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
-                    No active tasks.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.9rem;">{{ task.current_speed|default:"-" }}</td>
+                    <td>{{ task.created_at|date:"M d H:i" }}</td>
+                    <td>
+                        {% if task.status == 'queued' %}
+                        <form method="post" action="{% url 'ui-acquisition-start' task.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;">Start</button>
+                        </form>
+                        {% elif task.status == 'completed' %}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #34D399; font-size: 1.2rem;">&#10003;</span>
+                            <a href="{% url 'ui-evidence-detail' task.evidence.pk %}" style="color: var(--primary-color); font-size: 0.8rem;">Details</a>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                        No active tasks.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>

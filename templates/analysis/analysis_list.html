@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Analysis Dashboard - ForensixOne{% endblock %}
+
+{% block content %}
+<header>
+    <div>
+        <h2>Analysis Dashboard</h2>
+        <p style="color: var(--text-muted);">Monitor deep forensic extraction & AI enrichment tasks.</p>
+    </div>
+</header>
+
+<div class="card" style="padding: 0;">
+    <table>
+        <thead>
+            <tr>
+                <th>Evidence</th>
+                <th>Engine</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Started</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for analysis in analyses %}
+            <tr>
+                <td>
+                    <div style="font-weight: 600;">{{ analysis.evidence.name }}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">{{ analysis.evidence.case.case_number }}</div>
+                </td>
+                <td>
+                    <span style="font-size: 0.85rem; color: var(--primary-color); font-weight: 500;">{{ analysis.get_type_display }}</span>
+                </td>
+                <td>
+                    <span class="status-badge 
+                        {% if analysis.status == 'processing' %}status-running{% endif %}
+                        {% if analysis.status == 'completed' %}status-completed{% endif %}
+                        {% if analysis.status == 'failed' %}status-failed{% endif %}
+                        {% if analysis.status == 'pending' %}status-running{% endif %}">
+                        {{ analysis.get_status_display }}
+                    </span>
+                    {% if analysis.error_message %}
+                        <div style="font-size: 0.7rem; color: #F87171; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ analysis.error_message }}">{{ analysis.error_message }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="flex: 1; height: 6px; background: #334155; border-radius: 3px; min-width: 80px;">
+                            <div style="width: {{ analysis.progress_percent }}%; background: var(--primary-color); height: 100%; border-radius: 3px;"></div>
+                        </div>
+                        <span style="font-size: 0.8rem;">{{ analysis.progress_percent|floatformat:0 }}%</span>
+                    </div>
+                </td>
+                <td>{{ analysis.started_at|date:"M d H:i"|default:"-" }}</td>
+                <td>
+                    <a href="{% url 'ui-evidence-detail' analysis.evidence.pk %}" style="color: var(--primary-color); font-size: 0.8rem; text-decoration: none; font-weight: 600;">View Intelligence Report</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    No analysis tasks found. Go to a case and click <strong>"Start AI Analysis"</strong>.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    /* Status Badge styling is in base.html */
+</style>
+{% endblock %}

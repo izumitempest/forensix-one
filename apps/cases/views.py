@@ -25,30 +25,37 @@ class CaseViewSet(viewsets.ModelViewSet):
 # --- UI Views ---
 from django.views.generic import ListView, DetailView, CreateView
 from django.urls import reverse_lazy
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
-class CaseListView(ListView):
+class CaseListView(LoginRequiredMixin, ListView):
     model = Case
     template_name = "cases/case_list.html"
     context_object_name = "cases"
     ordering = ["-created_at"]
 
 
-class CaseDetailView(DetailView):
+class CaseDetailView(LoginRequiredMixin, DetailView):
     model = Case
     template_name = "cases/case_detail.html"
     context_object_name = "case"
 
 
-class CaseCreateView(CreateView):
+class CaseCreateView(LoginRequiredMixin, CreateView):
     model = Case
     fields = ["name", "description", "priority", "case_type"]
     template_name = "cases/case_form.html"
-    success_url = reverse_lazy("case-list")
+    success_url = reverse_lazy("ui-case-list")
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         return super().form_valid(form)
+
+
+class EvidenceDetailView(LoginRequiredMixin, DetailView):
+    model = Evidence
+    template_name = "cases/evidence_detail.html"
+    context_object_name = "evidence"
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

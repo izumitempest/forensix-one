@@ -211,16 +211,16 @@
           >Dashboard</a
         >
         <a
-          href="/cases/"
+          href="{% url 'ui-case-list' %}"
           class="nav-item {% if '/cases/' in request.path %}active{% endif %}"
           >Cases</a
         >
         <a
-          href="/acquisition/"
+          href="{% url 'ui-acquisition-list' %}"
           class="nav-item {% if '/acquisition/' in request.path %}active{% endif %}"
           >Acquisition</a
         >
-        <a href="/analysis/" class="nav-item">Analysis</a>
+        <a href="{% url 'ui-analysis-list' %}" class="nav-item {% if '/analysis/' in request.path %}active{% endif %}">Analysis</a>
         <a href="/timeline/" class="nav-item">Timeline</a>
         <a href="/reports/" class="nav-item">Reports</a>
         <div
@@ -239,5 +239,6 @@
     <div class="main-content">{% block content %} {% endblock %}</div>
 
     {% block extra_js %}{% endblock %}
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
   </body>
 </html>

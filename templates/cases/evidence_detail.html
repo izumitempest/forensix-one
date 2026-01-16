@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% load markdown_extras %}
+
+{% block title %}Evidence: {{ evidence.name }} - ForensixOne{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Markdown Styling for Insight Cards */
+    .insight-content h1, .insight-content h2, .insight-content h3 {
+        color: #60A5FA;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+        border-bottom: 1px solid rgba(96, 165, 250, 0.2);
+        padding-bottom: 4px;
+        font-weight: 600;
+    }
+    .insight-content p {
+        margin-bottom: 0.75rem;
+        line-height: 1.5;
+    }
+    .insight-content ul, .insight-content ol {
+        margin-bottom: 0.75rem;
+        padding-left: 1.2rem;
+    }
+    .insight-content li {
+        margin-bottom: 0.25rem;
+    }
+    .insight-content code {
+        background: rgba(0,0,0,0.3);
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-family: monospace;
+        color: #F87171;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 24px;">
+    <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
+        <a href="{% url 'ui-case-detail' evidence.case.pk %}" style="color: var(--text-muted); text-decoration: none;">&larr; {{ evidence.case.case_number }}</a>
+        <span style="color: var(--border-color);">/</span>
+        <span style="color: var(--primary-color);">{{ evidence.name }}</span>
+    </div>
+    <h1>Evidence Technical Detail</h1>
+</div>
+
+<div id="evidence-detail-container" 
+     hx-get="{% url 'ui-evidence-detail' evidence.pk %}" 
+     hx-trigger="every 4s" 
+     hx-select="#evidence-detail-container" 
+     hx-swap="outerHTML">
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <!-- Left Column: Primary Metadata -->
+    <div>
+        <div class="card" style="margin-bottom: 24px;">
+            <h3 style="margin-bottom: 20px; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Forensic Integrity (Hashing)</h3>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">SHA-256 Hash</label>
+                <div style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); word-break: break-all;">
+                    {{ evidence.sha256_hash|default:"Not Calculated" }}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">MD5 Hash</label>
+                <div style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    {{ evidence.md5_hash|default:"Not Calculated" }}
+                </div>
+            </div>
+            
+            {% if evidence.md5_hash %}
+            <div style="padding: 12px; background: rgba(16, 185, 129, 0.1); border-left: 4px solid #10B981; color: #34D399; font-size: 0.9rem;">
+                Integrity Verified. This hash matches the acquisition source.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 20px; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Source & Storage Information</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Source Type</label>
+                    <div style="font-weight: 500;">{{ evidence.get_source_type_display }}</div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">File Size</label>
+                    <div style="font-weight: 500;">{{ evidence.size_bytes|filesizeformat }} ({{ evidence.size_bytes }} bytes)</div>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Original Acquisition Source</label>
+                    <div style="font-family: monospace; font-size: 0.9rem;">{{ evidence.acquisition_task.source_path|default:evidence.acquisition_method }}</div>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Forensic Image Path (Server Local Storage)</label>
+                    <div style="font-family: monospace; font-size: 0.9rem; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; border: 1px solid var(--border-color);">{{ evidence.file_path }}</div>
+                </div>
+            </div>
+            <div class="card">
+            <h3 style="margin-bottom: 20px; color: var(--primary-color); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Acquisition Logs</h3>
+            <pre style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; max-height: 200px; overflow-y: auto; color: #94A3B8; border: 1px solid var(--border-color);">{{ evidence.acquisition_task.logs|default:"No technical logs recorded for this session." }}</pre>
+        </div>
+    </div>
+    </div>
+
+    <!-- Right Column: Acquisition Task Info -->
+    <div>
+        <h2 style="font-size: 1.25rem; margin-bottom: 16px;">Acquisition Context</h2>
+        
+        {% with task=evidence.acquisition_task %}
+        <div class="card">
+            {% if task %}
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted);">Status</label>
+                    <div style="font-weight: 600; text-transform: uppercase; color: {% if task.status == 'completed' %}#34D399{% else %}#F59E0B{% endif %};">
+                        {{ task.get_status_display }}
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted);">Acquired By</label>
+                    <div>{{ evidence.acquired_by.username }}</div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted);">Date</label>
+                    <div>{{ evidence.acquisition_date|date:"F j, Y, H:i" }}</div>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.8rem; color: var(--text-muted);">Transfer Speed</label>
+                    <div style="font-family: monospace; color: var(--accent-color); font-weight: bold;">{{ task.current_speed|default:"N/A" }}</div>
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                     <label style="display: block; font-size: 0.8rem; color: var(--text-muted);">Internal Task ID</label>
+                     <div style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">{{ task.id }}</div>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted);">No acquisition task details available for this item.</p>
+            {% endif %}
+        </div>
+        {% endwith %}
+
+        <div style="margin-top: 24px;">
+            <div class="card" style="border-top: 4px solid var(--primary-color); margin-bottom: 12px;">
+                <h4 style="margin-bottom: 16px; font-size: 0.9rem; text-transform: uppercase;">Deep Analysis Engine</h4>
+                
+                {% with analysis=evidence.analyses.last %}
+                {% if analysis %}
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 0.75rem; font-weight: 600;">{{ analysis.get_status_display }}</span>
+                            <span style="font-size: 0.8rem; color: var(--primary-color); font-weight: bold;">{{ analysis.progress_percent }}%</span>
+                        </div>
+                        <div style="height: 8px; background: #334155; border-radius: 4px; overflow: hidden;">
+                            <div style="width: {{ analysis.progress_percent }}%; background: var(--primary-color); height: 100%; transition: width 0.5s ease; box-shadow: 0 0 10px var(--primary-color);"></div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <div style="flex: 1; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Risk</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: #F87171;">{{ analysis.overall_risk_score|floatformat:2 }}</div>
+                        </div>
+                        <div style="flex: 1; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; text-align: center;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Artifacts</div>
+                            <div style="font-size: 1.1rem; font-weight: 700;">{{ analysis.artifacts.count }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <form method="post" action="{% url 'ui-analysis-start' evidence.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="width: 100%;" {% if analysis.status == 'processing' %}disabled{% endif %}>
+                        {% if analysis.status == 'processing' %}Analyzing...{% elif analysis.status == 'completed' %}Rerun Analysis{% else %}Start AI Analysis{% endif %}
+                    </button>
+                </form>
+                {% endwith %}
+            </div>
+            <button class="btn btn-outline" style="width: 100%;">Download Verification Log</button>
+        </div>
+    </div>
+</div>
+
+<!-- Extracted Intelligence Section -->
+<div style="margin-top: 40px;">
+    <h2 style="font-size: 1.5rem; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
+        <span style="background: var(--primary-color); width: 8px; height: 24px; border-radius: 4px;"></span>
+        Extracted Intelligence & Artifacts
+    </h2>
+
+    {% with latest_analysis=evidence.analyses.last %}
+    {% for artifact in latest_analysis.artifacts.all %}
+    <div class="card" style="margin-bottom: 24px; border-left: 4px solid {% if artifact.is_suspicious %}#EF4444{% else %}var(--primary-color){% endif %};">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
+            <div>
+                <span style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary-color); font-weight: 600;">{{ artifact.get_type_display }}</span>
+                <h4 style="font-size: 1.1rem; margin-top: 4px;">{{ artifact.name }}</h4>
+                <div style="display: flex; gap: 6px; margin-top: 6px;">
+                    {% for label in artifact.ai_labels %}
+                    <span style="background: rgba(59, 130, 246, 0.2); color: #60A5FA; font-size: 0.7rem; padding: 2px 8px; border-radius: 4px;">{{ label }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                {% if artifact.is_suspicious %}
+                <span style="background: rgba(239, 68, 68, 0.2); color: #F87171; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; border: 1px solid #EF4444;">SUSPICIOUS</span>
+                {% endif %}
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">Risk Score: {{ artifact.risk_score|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Left: Extracted Content / Indicators -->
+            <div style="font-size: 0.9rem;">
+                {% if artifact.type == 'network_log' %}
+                    <div style="color: var(--text-muted); margin-bottom: 8px; font-weight: 500;">Intelligence Indicators</div>
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px;">
+                        {% if artifact.metadata.ips %}<div style="margin-bottom: 8px;"><strong style="color: #60A5FA;">IPs:</strong> <span style="font-family: monospace;">{{ artifact.metadata.ips|join:", " }}</span></div>{% endif %}
+                        {% if artifact.metadata.emails %}<div style="margin-bottom: 8px;"><strong style="color: #60A5FA;">Emails:</strong> {{ artifact.metadata.emails|join:", " }}</div>{% endif %}
+                        {% if artifact.metadata.urls %}<div><strong style="color: #60A5FA;">URLs:</strong> <span style="font-size: 0.8rem; opacity: 0.8;">{{ artifact.metadata.urls|join:", " }}</span></div>{% endif %}
+                    </div>
+                {% elif artifact.content %}
+                    <div style="color: var(--text-muted); margin-bottom: 8px; font-weight: 500;">Extracted Content</div>
+                    <div style="background: rgba(0,0,0,0.2); border-radius: 6px; padding: 12px; max-height: 250px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6; color: #E2E8F0; border: 1px solid var(--border-color);">
+                        {{ artifact.content|linebreaks }}
+                    </div>
+                {% else %}
+                    <div style="color: var(--text-muted); margin-bottom: 8px; font-weight: 500;">Technical Metadata</div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.8rem;">
+                        {% for key, value in artifact.metadata.items|slice:":12" %}
+                        <span style="color: var(--text-muted); font-family: monospace;">{{ key }}:</span>
+                        <span style="word-break: break-all;">{{ value }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Right: Insights & AI Summaries -->
+            <div>
+                {% if artifact.ai_summary %}
+                <div style="color: var(--text-muted); margin-bottom: 8px; font-weight: 500;">AI Forensic Insight</div>
+                <div class="insight-content" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1)); padding: 16px; border-radius: 8px; font-size: 0.9rem; line-height: 1.6; border: 1px solid rgba(59, 130, 246, 0.3); color: #DBEAFE;">
+                    {{ artifact.ai_summary|render_markdown }}
+                </div>
+                {% endif %}
+
+                {% if artifact.raw_hex_preview %}
+                <div style="color: var(--text-muted); margin-top: 16px; margin-bottom: 8px; font-weight: 500;">Hex Preview (Binary Header)</div>
+                <pre style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 6px; font-size: 0.7rem; font-family: monospace; color: #94A3B8; border: 1px solid var(--border-color); margin: 0; line-height: 1.2;">{{ artifact.raw_hex_preview }}</pre>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card" style="text-align: center; padding: 60px; color: var(--text-muted);">
+        <div style="font-size: 3rem; margin-bottom: 16px;">🔍</div>
+        <p>No intelligence extracted yet. Click <strong>"Start AI Analysis"</strong> to begin deep bit-streaming.</p>
+    </div>
+    {% endfor %}
+    {% endwith %}
+</div>
+</div>
+{% endblock %}

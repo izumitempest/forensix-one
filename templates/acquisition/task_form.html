@@ -8,7 +8,7 @@
     <p style="color: var(--text-muted); margin-bottom: 24px;">Configure a new forensic collection job. This will automatically create an Evidence listing.</p>
     
     <div class="card">
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             
             {% if form.non_field_errors %}
@@ -54,25 +54,46 @@
 
                      <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 500;">Method</label>
-                        <select name="type" class="form-control">
+                        <select name="type" id="id_type" class="form-control" onchange="toggleFields()">
                             <option value="disk_physical">Physical (DD Raw)</option>
                             <option value="disk_expert">Expert Witness (E01)</option>
+                            <option value="file_upload">Evidence File Upload</option>
                             <option value="memory_dump">Volatile Memory</option>
                             <option value="remote_agent">Remote Agent Stream</option>
                         </select>
                     </div>
 
-                    <div style="margin-bottom: 20px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Source Path (Device)</label>
-                        <input type="text" name="source_path" required class="form-control" placeholder="/dev/sdb or \\.\PhysicalDrive1">
-                        <small style="color: var(--text-muted);">Use /tmp/dummy_disk.raw for testing.</small>
+                    <div id="field-physical-device" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Select Physical Device</label>
+                        <select name="physical_device" id="id_physical_device" class="form-control">
+                            {% for val, label in form.physical_device.field.choices %}
+                                <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <small style="color: var(--text-muted); display: block; margin-top: 4px;">Hardware disks and USBs detected on host.</small>
                     </div>
 
-                    <div style="margin-bottom: 20px;">
+                    <div id="field-source-path" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Manual Source Path</label>
+                        <input type="text" name="source_path" id="id_source_path" class="form-control" placeholder="/dev/sdb or \\.\PhysicalDrive1">
+                        <small style="color: var(--text-muted);">Use if device is not listed above.</small>
+                    </div>
+
+                    <div id="field-source-upload" style="margin-bottom: 20px; display: none;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 500;">Upload Evidence File</label>
+                        <input type="file" name="source_upload" id="id_source_upload" class="form-control">
+                    </div>
+
+                    <div id="field-destination" style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 8px; font-weight: 500;">Destination Path (Image)</label>
-                        <input type="text" name="destination_path" required class="form-control" placeholder="/mnt/evidence/image.dd">
+                        <input type="text" name="destination_path" id="id_destination_path" class="form-control" placeholder="/mnt/evidence/image.dd">
                     </div>
                 </div>
+            </div>
+
+            <div id="info-remote-agent" style="display: none; padding: 16px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; margin-bottom: 24px; font-size: 0.9rem;">
+                <span style="font-weight: 600; color: #A78BFA;">📡 Remote Acquisition:</span> 
+                Once created, the system will generate a unique **Connection Key**. You will then see the deployment command to run on the target machine.
             </div>
 
             <div style="padding: 16px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; margin-bottom: 24px; font-size: 0.9rem;">
@@ -81,7 +102,7 @@
             </div>
 
             <div style="display: flex; justify-content: flex-end; gap: 12px;">
-                <a href="{% url 'acquisition-list' %}" class="btn btn-outline" style="text-align: center;">Cancel</a>
+                <a href="{% url 'ui-acquisition-list' %}" class="btn btn-outline" style="text-align: center;">Cancel</a>
                 <button type="submit" class="btn">Create Task</button>
             </div>
         </form>
@@ -105,4 +126,38 @@
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
 </style>
+
+<script>
+    function toggleFields() {
+        const type = document.getElementById('id_type').value;
+        const physicalDevice = document.getElementById('field-physical-device');
+        const sourcePath = document.getElementById('field-source-path');
+        const sourceUpload = document.getElementById('field-source-upload');
+        const destination = document.getElementById('field-destination');
+        const infoRemote = document.getElementById('info-remote-agent');
+        
+        // Reset defaults
+        physicalDevice.style.display = 'none';
+        sourcePath.style.display = 'block';
+        sourceUpload.style.display = 'none';
+        destination.style.display = 'block';
+        infoRemote.style.display = 'none';
+
+        if (type === 'file_upload') {
+            sourcePath.style.display = 'none';
+            sourceUpload.style.display = 'block';
+            destination.style.display = 'none'; 
+        } else if (type === 'disk_physical' || type === 'disk_expert') {
+            physicalDevice.style.display = 'block';
+            sourcePath.style.display = 'block';
+        } else if (type === 'memory_dump') {
+            sourcePath.style.display = 'none'; // Local host RAM
+        } else if (type === 'remote_agent') {
+            infoRemote.style.display = 'block';
+            sourcePath.placeholder = "Remote Target (e.g. C: or /dev/sda)";
+        }
+    }
+    // Init
+    document.addEventListener('DOMContentLoaded', toggleFields);
+</script>
 {% endblock %}

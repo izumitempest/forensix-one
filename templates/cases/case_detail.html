@@ -7,7 +7,7 @@
 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 24px;">
     <div>
         <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
-            <a href="{% url 'case-list' %}" style="color: var(--text-muted); text-decoration: none;">&larr; Cases</a>
+            <a href="{% url 'ui-case-list' %}" style="color: var(--text-muted); text-decoration: none;">&larr; Cases</a>
             <span style="color: var(--border-color);">/</span>
             <span style="font-family: monospace; color: var(--primary-color);">{{ case.case_number }}</span>
         </div>
@@ -16,7 +16,7 @@
     </div>
     <div style="display: flex; gap: 12px;">
          <button class="btn btn-outline">Generate Report</button>
-         <button class="btn">Add Evidence</button>
+         <a href="{% url 'ui-acquisition-create' %}?case_id={{ case.id }}" class="btn" style="text-decoration: none; display: flex; align-items: center; justify-content: center;">Add Evidence</a>
     </div>
 </div>
 
@@ -59,12 +59,12 @@
                 <tbody>
                     {% for item in case.evidence.all %}
                     <tr>
-                        <td>{{ item.name }}</td>
-                        <td>{{ item.source_type }}</td>
+                        <td><a href="{% url 'ui-evidence-detail' item.pk %}" style="color: var(--text-main); font-weight: 500;">{{ item.name }}</a></td>
+                        <td>{{ item.get_source_type_display }}</td>
                         <td>{{ item.size_bytes|filesizeformat }}</td>
                         <td style="font-family: monospace;">{{ item.md5_hash|truncatechars:10 }}</td>
                         <td>
-                            <a href="#" style="color: var(--primary-color);">Acquire</a>
+                            <a href="{% url 'ui-evidence-detail' item.pk %}" style="color: var(--primary-color);">Details</a>
                         </td>
                     </tr>
                     {% empty %}
